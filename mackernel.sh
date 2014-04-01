@@ -1,0 +1,1 @@
+kextunload SiLabsUSBDriver.kext
