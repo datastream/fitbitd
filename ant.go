@@ -58,13 +58,14 @@ func (f *ANT) ReceiveMessage(size int) ([]byte, error) {
 	for {
 		n, err := f.reader.Read(data[l:])
 		l += n
-		log.Printf("% #x, stats:%s\n", data[:l], err)
 		if err != nil {
+			log.Println(err)
 			if retry < 3 {
 				retry++
 				continue
 			}
 		}
+		log.Printf("receive: [% #x], size: %d\n", data[:l], l)
 		if l < minlen {
 			continue
 		}
@@ -111,7 +112,7 @@ func (f *ANT) CheckResetResponse(status byte) (bool, error) {
 	if len(data) > 3 && data[2] == '\x6f' && data[3] == status {
 		return true, nil
 	}
-	return false, fmt.Errorf("rest failed: %x", status)
+	return false, fmt.Errorf("rest failed: % #x", status)
 }
 func (f *ANT) CheckOkResponse() (bool, error) {
 	data, err := f.ReceiveMessage(4096)
@@ -133,7 +134,7 @@ func (f *ANT) Reset() (bool, error) {
 		log.Println("write err")
 		return false, err
 	}
-	time.Sleep(time.Second * 10)
+	time.Sleep(time.Second)
 	return f.CheckResetResponse('\x20')
 }
 func (f *ANT) SetChannelFrequency(freq ...interface{}) (bool, error) {

@@ -39,6 +39,20 @@ func (f *FitbitBase) Open() error {
 }
 
 func (f *FitbitBase) SettingUp() error {
+	f.dev.Control(64, 0, 65535, 0, []byte{})
+	f.dev.Control(64, 1, 8192, 0, []byte{})
+	f.dev.Control(64, 0, 0, 0, []byte{})
+	f.dev.Control(64, 0, 65535, 0, []byte{})
+	f.dev.Control(64, 1, 8192, 0, []byte{})
+	f.dev.Control(64, 1, 74, 0, []byte{})
+	f.dev.Control(192, 255, 14091, 0, []byte{'\x01'})
+	f.dev.Control(64, 3, 2048, 0, []byte{})
+	f.dev.Control(64, 19, 0, 0, []byte{
+		'\x08', '\x00', '\x00', '\x00',
+		'\x40', '\x00', '\x00', '\x00',
+		'\x00', '\x00', '\x00', '\x00',
+		'\x00', '\x00', '\x00', '\x00'})
+	f.dev.Control(64, 18, 12, 0, []byte{})
 	err := f.dev.SetConfig(1)
 	if err != nil {
 		log.Println("setconfig error")
