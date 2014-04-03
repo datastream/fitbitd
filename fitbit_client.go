@@ -1,13 +1,13 @@
 package main
 
 import (
-	"net/http"
-	"net/url"
-	"io/ioutil"
-	"fmt"
 	"encoding/base64"
 	"encoding/xml"
+	"fmt"
+	"io/ioutil"
 	"log"
+	"net/http"
+	"net/url"
 )
 
 const (
@@ -17,9 +17,9 @@ const (
 )
 
 type FitbitClient struct {
-	*FitbitBase `xml:""`
-	ResponseInfo Response `xml:"response"`
-	RemoteOps []RemoteOp `xml:"device>remoteOps>remoteOp"`
+	*FitbitBase  `xml:""`
+	ResponseInfo Response   `xml:"response"`
+	RemoteOps    []RemoteOp `xml:"device>remoteOps>remoteOp"`
 }
 
 type Response struct {
@@ -28,7 +28,7 @@ type Response struct {
 }
 
 type RemoteOp struct {
-	OpCode string `xml:"opCode"`
+	OpCode      string `xml:"opCode"`
 	PayloadData string `xml:"payloadData"`
 }
 

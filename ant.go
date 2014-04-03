@@ -9,10 +9,10 @@ import (
 )
 
 type ANT struct {
-	channel byte
+	channel    byte
 	receiveBuf []byte
-	reader  usb.Endpoint
-	writer  usb.Endpoint
+	reader     usb.Endpoint
+	writer     usb.Endpoint
 }
 
 func XorSum(data []byte) byte {
@@ -64,7 +64,7 @@ func (f *ANT) ReceiveMessage(size int) ([]byte, error) {
 			log.Printf("Read: [% #x]\n", buf[:n])
 			f.receiveBuf = append(f.receiveBuf, buf[:n]...)
 			if err != nil {
-				retry ++
+				retry++
 			}
 			continue
 		}
@@ -155,7 +155,7 @@ func (f *ANT) Reset() (bool, error) {
 		return false, err
 	}
 	time.Sleep(time.Second)
-	for i:= 0; i< 8; i++ {
+	for i := 0; i < 8; i++ {
 		if ok, err := f.CheckResetResponse('\x20'); ok {
 			return ok, err
 		}
@@ -239,7 +239,7 @@ func (f *ANT) ReceiveAcknowledgedReply() ([]byte, error) {
 		data, err = f.ReceiveMessage(13)
 		if len(data) > 4 && data[2] == '\x4f' {
 			log.Println("Get Ack: ", data[4:len(data)-1])
-			return data[4:len(data)-1], err
+			return data[4 : len(data)-1], err
 		}
 	}
 	return data, fmt.Errorf("failed to receive acknowledged reply")
@@ -273,7 +273,7 @@ func (f *ANT) SendBurstData(data []byte, sleep time.Duration) (bool, error) {
 	for i := 0; i < 2; i++ {
 		l := 0
 		for {
-			if (l+9) > len(data) {
+			if (l + 9) > len(data) {
 				f.SendMessage('\x50', data[l:])
 				break
 			} else {
@@ -308,7 +308,7 @@ func (f *ANT) CheckBurstResponse() ([]byte, error) {
 		}
 		if len(status) > 4 && status[2] == '\x50' {
 			response = append(response, status[4:len(status)-1]...)
-			if (status[3]&'\x80') > 0 {
+			if (status[3] & '\x80') > 0 {
 				return response, nil
 			}
 		}

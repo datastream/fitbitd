@@ -1,20 +1,20 @@
 package main
 
 import (
-	"github.com/kylelemons/gousb/usb"
-	"math/rand"
-	"log"
 	"fmt"
+	"github.com/kylelemons/gousb/usb"
+	"log"
+	"math/rand"
 	"time"
 )
 
 type FitbitBase struct {
-	ctx     *usb.Context
-	dev     *usb.Device
-	base    *ANT
+	ctx                *usb.Context
+	dev                *usb.Device
+	base               *ANT
 	trackerPacketCount int
-	currentPacketId int
-	currentBankId int
+	currentPacketId    int
+	currentBankId      int
 }
 
 func (f *FitbitBase) Open() error {
@@ -86,7 +86,7 @@ func (f *FitbitBase) Close() {
 }
 
 // data transport
-func (f *FitbitBase) InitDeviceChannel(channel []byte) (bool, error){
+func (f *FitbitBase) InitDeviceChannel(channel []byte) (bool, error) {
 	ok, err := f.base.Reset()
 	if !ok {
 		log.Println("fitbit reset failed")
@@ -135,7 +135,6 @@ func (f *FitbitBase) InitDeviceChannel(channel []byte) (bool, error){
 	return ok, err
 }
 
-
 func (f *FitbitBase) InitTrackerForTransfer() (bool, error) {
 	ok, err := f.InitDeviceChannel([]byte{'\xff', '\xff', '\x01', '\x01'})
 	if !ok {
@@ -178,7 +177,7 @@ func (f *FitbitBase) InitTrackerForTransfer() (bool, error) {
 	return ok, err
 }
 
-func (f *FitbitBase) ResetTracker()(bool, error) {
+func (f *FitbitBase) ResetTracker() (bool, error) {
 	return f.base.SendAcknowledgedData([]byte{'\x78', '\x01', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00'})
 }
 
@@ -190,8 +189,8 @@ func (f *FitbitBase) PingTracker() (bool, error) {
 	return f.base.SendAcknowledgedData([]byte{'\x78', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00'})
 }
 
-func (f *FitbitBase)WaitForBeacon() error {
-	for i := 0 ;i < 75; i ++ {
+func (f *FitbitBase) WaitForBeacon() error {
+	for i := 0; i < 75; i++ {
 		data, err := f.base.ReceiveMessage(4096)
 		if err == nil && len(data) > 2 && data[2] == '\x4e' {
 			return nil
@@ -201,8 +200,8 @@ func (f *FitbitBase)WaitForBeacon() error {
 	return fmt.Errorf("Failed to see tracker beacon")
 }
 
-func (f *FitbitBase) RunOpcode(opcode, payload []byte)([]byte, error) {
-	for i := 0; i < 4; i ++ {
+func (f *FitbitBase) RunOpcode(opcode, payload []byte) ([]byte, error) {
+	for i := 0; i < 4; i++ {
 		log.Printf("Send opcode: [% #x]\n", opcode)
 		ok, err := f.SendTrackerPacket(opcode)
 		if !ok {
@@ -219,7 +218,7 @@ func (f *FitbitBase) RunOpcode(opcode, payload []byte)([]byte, error) {
 			return f.GetDataBank()
 		}
 		if data[1] == '\x61' {
-			if len(payload) >0 {
+			if len(payload) > 0 {
 				f.SendTrackerPayload(payload)
 				data, err := f.base.ReceiveAcknowledgedReply()
 				data = data[1:]
@@ -235,32 +234,32 @@ func (f *FitbitBase) RunOpcode(opcode, payload []byte)([]byte, error) {
 }
 func (f *FitbitBase) SendTrackerPacket(packet []byte) (bool, error) {
 	p := append([]byte{byte(f.GenPacketId())}, packet...)
-	log.Println("sendTackerPacket:",p)
+	log.Println("sendTackerPacket:", p)
 	return f.base.SendAcknowledgedData(p)
 }
 
-func (f *FitbitBase)GenPacketId() int {
+func (f *FitbitBase) GenPacketId() int {
 	f.currentPacketId = '\x38' + f.getTrackerPacketCount()
 	return f.currentPacketId
 }
 
 func (f *FitbitBase) getTrackerPacketCount() int {
-	f.trackerPacketCount ++
+	f.trackerPacketCount++
 	if f.trackerPacketCount > 7 {
 		f.trackerPacketCount = 0
 	}
 	return f.trackerPacketCount
 }
-func (f *FitbitBase)SendTrackerPayload(payload []byte)(bool, error){
+func (f *FitbitBase) SendTrackerPayload(payload []byte) (bool, error) {
 	p := []byte{'\x00', byte(f.GenPacketId()), '\x80', byte(len(payload)), '\x00', '\x00', '\x00', '\x00'}
 	p = append(p, XorSum(payload))
-	prefix := []byte{'\x20','\x40','\x60'}
+	prefix := []byte{'\x20', '\x40', '\x60'}
 	i := 0
 	index := 0
 	for {
 		current_prefix := prefix[index%3]
 		var plist []byte
-		if (i +8) > len(payload) {
+		if (i + 8) > len(payload) {
 			plist = append(plist, byte((int(current_prefix)+'\x80'))|f.base.channel)
 		} else {
 			plist = append(plist, current_prefix|f.base.channel)
@@ -270,27 +269,27 @@ func (f *FitbitBase)SendTrackerPayload(payload []byte)(bool, error){
 			if len(plist) >= 9 {
 				break
 			}
-			plist=append(plist, '\x00')
+			plist = append(plist, '\x00')
 		}
 		p = append(p, plist...)
 		i += 8
 		if i > len(payload) {
 			break
 		}
-		index ++
+		index++
 	}
 	return f.base.SendBurstData(p, 10*time.Millisecond)
 }
-func (f *FitbitBase)GetDataBank() ([]byte, error) {
+func (f *FitbitBase) GetDataBank() ([]byte, error) {
 	var data []byte
 	cmd := byte('\x70')
-	for i := 0; i < 2000; i ++ {
+	for i := 0; i < 2000; i++ {
 		bank, err := f.CheckTrackerDataBank(f.currentBankId, cmd)
 		if err != nil {
 			log.Println(err)
 		}
 		f.currentBankId += 1
-		cmd = '\x60'  // Send 0x60 on subsequent bursts
+		cmd = '\x60' // Send 0x60 on subsequent bursts
 		if len(bank) == 0 {
 			log.Println("Get dataBank", data)
 			return data, nil
@@ -300,28 +299,28 @@ func (f *FitbitBase)GetDataBank() ([]byte, error) {
 	return data, fmt.Errorf("Cannot complete data bank")
 }
 
-func (f *FitbitBase)CheckTrackerDataBank(index int, cmd byte) ([]byte, error) {
+func (f *FitbitBase) CheckTrackerDataBank(index int, cmd byte) ([]byte, error) {
 	f.SendTrackerPacket([]byte{cmd, '\x00', '\x02', byte(index), '\x00', '\x00', '\x00'})
-        return f.GetTrackerBurst()
+	return f.GetTrackerBurst()
 }
-func (f *FitbitBase)GetTrackerBurst() ([]byte, error){
+func (f *FitbitBase) GetTrackerBurst() ([]byte, error) {
 	d, err := f.base.CheckBurstResponse()
-	if len(d)>0 && d[1] != '\x81' {
+	if len(d) > 0 && d[1] != '\x81' {
 		return d, fmt.Errorf("Response received is not tracker burst! Got")
 	}
 	log.Println("burst response:", d)
-	size := d[3] << 8 | d[2]
+	size := d[3]<<8 | d[2]
 	if size == 0 {
 		return d[:0], err
 	}
 	log.Println("burst response:", size)
-	return d[8:8+size], err
+	return d[8 : 8+size], err
 }
 
-func (f *FitbitBase)RunDataBankOpcode(index byte) ([]byte, error) {
+func (f *FitbitBase) RunDataBankOpcode(index byte) ([]byte, error) {
 	return f.RunOpcode([]byte{'\x22', index, '\x00', '\x00', '\x00', '\x00', '\x00'}, []byte{})
 }
 
-func (f *FitbitBase)GetTrackerInfo() ([]byte, error) {
-	return f.RunOpcode([]byte{'\x24', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00'},  []byte{})
+func (f *FitbitBase) GetTrackerInfo() ([]byte, error) {
+	return f.RunOpcode([]byte{'\x24', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00'}, []byte{})
 }
