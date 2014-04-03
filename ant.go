@@ -10,6 +10,7 @@ import (
 
 type ANT struct {
 	channel byte
+	receiveBuf []byte
 	reader  usb.Endpoint
 	writer  usb.Endpoint
 }
@@ -50,57 +51,76 @@ func (f *ANT) SendMessage(data ...interface{}) error {
 	log.Printf("Send: [% #x], Size: %d\n", b, size)
 	return err
 }
+
 func (f *ANT) ReceiveMessage(size int) ([]byte, error) {
 	minlen := 4
-	data := make([]byte, size)
-	l := 0
 	retry := 0
+	l := 0
+	var data []byte
+	buf := make([]byte, size)
 	for {
-		n, err := f.reader.Read(data[l:])
-		l += n
-		if err != nil {
-			log.Println(err)
-			if retry < 3 {
-				retry++
-				continue
+		if len(f.receiveBuf) < minlen && retry < 3 {
+			n, err := f.reader.Read(buf)
+			log.Printf("Read: [% #x]\n", buf[:n])
+			f.receiveBuf = append(f.receiveBuf, buf[:n]...)
+			if err != nil {
+				retry ++
 			}
-		}
-		log.Printf("receive: [% #x], size: %d\n", data[:l], l)
-		if l < minlen {
 			continue
 		}
-		data = f.FindSync(data, 0)
-		if data[1] < 0 || data[1] > 32 {
-			data = f.FindSync(data, 1)
+		if len(f.receiveBuf) < minlen {
+			return []byte{}, fmt.Errorf("read ant data failed")
+		}
+		data = f.receiveBuf
+		data = f.FindSync(data)
+		if ok, err := ANTPackageSum(data); !ok {
+			if err.Error() == "length error" {
+				retry = 0
+				continue
+			}
+			f.receiveBuf = f.FindSync(data[1:])
 			continue
 		}
 		l = int(data[1]) + 4
-		if len(data) < l {
-			continue
-		}
-		p := data[0:l]
-		if XorSum(p) != '\x00' {
-			data = f.FindSync(data, 1)
-			continue
-		}
-		return p, nil
+		f.receiveBuf = data[l:]
+		break
 	}
-	return data, fmt.Errorf("fail to read message")
+	log.Printf("Get ANT packet: [% #x], Size: %d\nbuf:[% #x]\n", data[:l], l, f.receiveBuf)
+	return data[:l], nil
 }
 
-func (f *ANT) FindSync(data []byte, start int) []byte {
+func (f *ANT) FindSync(data []byte) []byte {
 	index := 0
 	for i, v := range data {
-		if i >= start && (v == '\xa4' || v == '\xa5') {
+		if v == '\xa4' || v == '\xa5' {
 			index = i
 			break
 		}
-		i += 1
 	}
 	if index > 0 {
-		log.Println("discarding ", data[:index])
+		log.Printf("discarding:[% #x]\n", data[:index])
 	}
 	return data[index:]
+}
+
+// CheckSum
+
+func ANTPackageSum(data []byte) (bool, error) {
+	if len(data) > 4 {
+		if data[1] < 0 || data[1] > 32 {
+			return false, fmt.Errorf("wrong size")
+		}
+		l := int(data[1]) + 4
+		if len(data) < l {
+			return false, fmt.Errorf("length error")
+		}
+		p := data[0:l]
+		if XorSum(p) != '\x00' {
+			return false, fmt.Errorf("xor error")
+		}
+		return true, nil
+	}
+	return false, fmt.Errorf("length error")
 }
 
 // FitBit ANT protocal
@@ -135,9 +155,14 @@ func (f *ANT) Reset() (bool, error) {
 		return false, err
 	}
 	time.Sleep(time.Second)
-	return f.CheckResetResponse('\x20')
+	for i:= 0; i< 8; i++ {
+		if ok, err := f.CheckResetResponse('\x20'); ok {
+			return ok, err
+		}
+	}
+	return false, fmt.Errorf("bad reset")
 }
-func (f *ANT) SetChannelFrequency(freq ...interface{}) (bool, error) {
+func (f *ANT) SetChannelFrequency(freq byte) (bool, error) {
 	err := f.SendMessage('\x45', f.channel, freq)
 	if err != nil {
 		return false, err
@@ -145,7 +170,7 @@ func (f *ANT) SetChannelFrequency(freq ...interface{}) (bool, error) {
 	return f.CheckOkResponse()
 }
 
-func (f *ANT) SetTransmitPower(power ...interface{}) (bool, error) {
+func (f *ANT) SetTransmitPower(power byte) (bool, error) {
 	err := f.SendMessage('\x47', '\x00', power)
 	if err != nil {
 		return false, err
@@ -153,7 +178,7 @@ func (f *ANT) SetTransmitPower(power ...interface{}) (bool, error) {
 	return f.CheckOkResponse()
 }
 
-func (f *ANT) SetSearchTimeout(timeout ...interface{}) (bool, error) {
+func (f *ANT) SetSearchTimeout(timeout byte) (bool, error) {
 	err := f.SendMessage('\x44', f.channel, timeout)
 	if err != nil {
 		return false, err
@@ -161,7 +186,7 @@ func (f *ANT) SetSearchTimeout(timeout ...interface{}) (bool, error) {
 	return f.CheckOkResponse()
 }
 
-func (f *ANT) SetChannelPeriod(period ...interface{}) (bool, error) {
+func (f *ANT) SetChannelPeriod(period []byte) (bool, error) {
 	err := f.SendMessage('\x43', f.channel, period)
 	if err != nil {
 		return false, err
@@ -169,7 +194,7 @@ func (f *ANT) SetChannelPeriod(period ...interface{}) (bool, error) {
 	return f.CheckOkResponse()
 }
 
-func (f *ANT) SetNetworkKey(network byte, key ...interface{}) (bool, error) {
+func (f *ANT) SetNetworkKey(network byte, key []byte) (bool, error) {
 	err := f.SendMessage('\x46', network, key)
 	if err != nil {
 		return false, err
@@ -177,7 +202,7 @@ func (f *ANT) SetNetworkKey(network byte, key ...interface{}) (bool, error) {
 	return f.CheckOkResponse()
 }
 
-func (f *ANT) SetChannelId(id ...interface{}) (bool, error) {
+func (f *ANT) SetChannelId(id []byte) (bool, error) {
 	err := f.SendMessage('\x51', f.channel, id)
 	if err != nil {
 		return false, err
@@ -207,23 +232,24 @@ func (f *ANT) AssignChannel() (bool, error) {
 	return f.CheckOkResponse()
 }
 
-func (f *ANT) ReceiveAcknowledgedReply(size int) ([]byte, error) {
+func (f *ANT) ReceiveAcknowledgedReply() ([]byte, error) {
 	var data []byte
 	var err error
 	for i := 0; i < 30; i++ {
-		data, err = f.ReceiveMessage(size)
+		data, err = f.ReceiveMessage(13)
 		if len(data) > 4 && data[2] == '\x4f' {
-			return data[4:len(data)], err
+			log.Println("Get Ack: ", data[4:len(data)-1])
+			return data[4:len(data)-1], err
 		}
 	}
-	return data, fmt.Errorf("Failed to receive acknowledged reply: %s", data)
+	return data, fmt.Errorf("failed to receive acknowledged reply")
 }
 
 func (f *ANT) CheckTxResponse(maxtries int) (bool, error) {
 	for i := 0; i < maxtries; i++ {
 		status, err := f.ReceiveMessage(4096)
 		if err != nil {
-			return false, err
+			continue
 		}
 		if len(status) > 5 && status[2] == '\x40' {
 			if status[5] == '\x0a' {
@@ -239,39 +265,50 @@ func (f *ANT) CheckTxResponse(maxtries int) (bool, error) {
 			}
 		}
 	}
+	log.Println("no tx")
 	return false, fmt.Errorf("No Transmission Ack Seen")
 }
 
-func (f *ANT) SendBurstData(data []byte) (bool, error) {
+func (f *ANT) SendBurstData(data []byte, sleep time.Duration) (bool, error) {
 	for i := 0; i < 2; i++ {
-		err := f.SendMessage('\x72', data)
-		if err != nil {
-			continue
+		l := 0
+		for {
+			if (l+9) > len(data) {
+				f.SendMessage('\x50', data[l:])
+				break
+			} else {
+				f.SendMessage('\x50', data[l:l+9])
+			}
+			if sleep > 0 {
+				time.Sleep(sleep)
+			}
+			l += 9
 		}
-		if ok, err := f.CheckTxResponse(10); ok {
+		if ok, err := f.CheckTxResponse(16); ok {
+			log.Println("tx ok", ok, err)
 			return ok, err
 		}
 	}
+
 	return false, fmt.Errorf("write burst data failed")
 }
 
 func (f *ANT) CheckBurstResponse() ([]byte, error) {
 	var response []byte
+	log.Println("CheckBurstResponse")
+	defer log.Println("CheckBurstResponse End")
 	for i := 0; i < 128; i++ {
-		status, err := f.ReceiveMessage(4096)
-		if err != nil {
-			continue
-		}
-		if len(status) > 5 && status[2] == '\x40' && status[5] == '\x40' {
+		status, _ := f.ReceiveMessage(4096)
+		if len(status) > 5 && status[2] == '\x40' && status[5] == '\x04' {
 			return response, fmt.Errorf("Burst receive failed by event!")
 		}
 		if len(status) > 4 && status[2] == '\x4f' {
-			response = append(response, status[4:]...)
+			response = append(response, status[4:len(status)-1]...)
 			return response, nil
 		}
 		if len(status) > 4 && status[2] == '\x50' {
-			response = append(response, status[4:]...)
-			if status[3]&'\x80' != '\x00' {
+			response = append(response, status[4:len(status)-1]...)
+			if (status[3]&'\x80') > 0 {
 				return response, nil
 			}
 		}
@@ -279,13 +316,13 @@ func (f *ANT) CheckBurstResponse() ([]byte, error) {
 	return response, fmt.Errorf("Burst receive failed to detect end")
 }
 
-func (f *ANT) SendAcknowledgedData(l ...interface{}) (bool, error) {
+func (f *ANT) SendAcknowledgedData(l []byte) (bool, error) {
 	for i := 0; i < 8; i++ {
 		err := f.SendMessage('\x4f', f.channel, l)
 		if err != nil {
 			continue
 		}
-		if ok, err := f.CheckTxResponse(10); ok {
+		if ok, err := f.CheckTxResponse(16); ok {
 			return ok, err
 		}
 	}
