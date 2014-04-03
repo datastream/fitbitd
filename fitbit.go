@@ -202,7 +202,6 @@ func (f *FitbitBase) WaitForBeacon() error {
 
 func (f *FitbitBase) RunOpcode(opcode, payload []byte) ([]byte, error) {
 	for i := 0; i < 4; i++ {
-		log.Printf("Send opcode: [% #x]\n", opcode)
 		ok, err := f.SendTrackerPacket(opcode)
 		if !ok {
 			continue
@@ -234,7 +233,6 @@ func (f *FitbitBase) RunOpcode(opcode, payload []byte) ([]byte, error) {
 }
 func (f *FitbitBase) SendTrackerPacket(packet []byte) (bool, error) {
 	p := append([]byte{byte(f.GenPacketId())}, packet...)
-	log.Println("sendTackerPacket:", p)
 	return f.base.SendAcknowledgedData(p)
 }
 
@@ -308,12 +306,12 @@ func (f *FitbitBase) GetTrackerBurst() ([]byte, error) {
 	if len(d) > 0 && d[1] != '\x81' {
 		return d, fmt.Errorf("Response received is not tracker burst! Got")
 	}
-	log.Println("burst response:", d)
 	size := d[3]<<8 | d[2]
+	log.Println("burst response:", d, size)
 	if size == 0 {
 		return d[:0], err
 	}
-	log.Println("burst response:", size)
+	log.Println("get burst:", d[8:8+size])
 	return d[8 : 8+size], err
 }
 

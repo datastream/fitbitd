@@ -61,7 +61,6 @@ func (f *ANT) ReceiveMessage(size int) ([]byte, error) {
 	for {
 		if len(f.receiveBuf) < minlen && retry < 3 {
 			n, err := f.reader.Read(buf)
-			log.Printf("Read: [% #x]\n", buf[:n])
 			f.receiveBuf = append(f.receiveBuf, buf[:n]...)
 			if err != nil {
 				retry++
@@ -85,7 +84,7 @@ func (f *ANT) ReceiveMessage(size int) ([]byte, error) {
 		f.receiveBuf = data[l:]
 		break
 	}
-	log.Printf("Get ANT packet: [% #x], Size: %d\nbuf:[% #x]\n", data[:l], l, f.receiveBuf)
+	log.Printf("Receive: [% #x], Size: %d\nbuf:[% #x]\n", data[:l], l, f.receiveBuf)
 	return data[:l], nil
 }
 
@@ -238,7 +237,7 @@ func (f *ANT) ReceiveAcknowledgedReply() ([]byte, error) {
 	for i := 0; i < 30; i++ {
 		data, err = f.ReceiveMessage(13)
 		if len(data) > 4 && data[2] == '\x4f' {
-			log.Println("Get Ack: ", data[4:len(data)-1])
+			log.Println("ReceiveAcknowledgedReply: ", data[4:len(data)-1])
 			return data[4 : len(data)-1], err
 		}
 	}
@@ -258,9 +257,11 @@ func (f *ANT) CheckTxResponse(maxtries int) (bool, error) {
 			}
 			if status[5] == '\x05' {
 				// TX successful
+				log.Println("CheckTxResponse:", status)
 				return true, nil
 			}
 			if status[5] == '\x06' {
+				log.Println("CheckTxResponse:", status)
 				return false, fmt.Errorf("Transmission Failed: %x", status)
 			}
 		}
@@ -295,20 +296,21 @@ func (f *ANT) SendBurstData(data []byte, sleep time.Duration) (bool, error) {
 
 func (f *ANT) CheckBurstResponse() ([]byte, error) {
 	var response []byte
-	log.Println("CheckBurstResponse")
-	defer log.Println("CheckBurstResponse End")
 	for i := 0; i < 128; i++ {
 		status, _ := f.ReceiveMessage(4096)
 		if len(status) > 5 && status[2] == '\x40' && status[5] == '\x04' {
+			log.Println("CheckBurstResponse: ", response)
 			return response, fmt.Errorf("Burst receive failed by event!")
 		}
 		if len(status) > 4 && status[2] == '\x4f' {
 			response = append(response, status[4:len(status)-1]...)
+			log.Println("CheckBurstResponse: ", response)
 			return response, nil
 		}
 		if len(status) > 4 && status[2] == '\x50' {
 			response = append(response, status[4:len(status)-1]...)
 			if (status[3] & '\x80') > 0 {
+				log.Println("CheckBurstResponse: ", response)
 				return response, nil
 			}
 		}
@@ -317,6 +319,7 @@ func (f *ANT) CheckBurstResponse() ([]byte, error) {
 }
 
 func (f *ANT) SendAcknowledgedData(l []byte) (bool, error) {
+	log.Println("SendAcknowledgedData:", l)
 	for i := 0; i < 8; i++ {
 		err := f.SendMessage('\x4f', f.channel, l)
 		if err != nil {
