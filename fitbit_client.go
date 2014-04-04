@@ -97,25 +97,22 @@ func (s *SyncTask) Run() {
 	for {
 		fb := FitbitBase{}
 		err := fb.Open()
-		if err != nil {
-			log.Println("fitbit base not find")
-			continue
+		if err == nil {
+			err = fb.SettingUp()
+			if err == nil {
+				c := FitbitClient{
+					FitbitBase: &fb,
+				}
+				log.Println("start sync")
+				err = c.UploadData()
+				if err != nil {
+					log.Println("sync failed", err)
+				} else {
+					log.Println("sync end")
+				}
+			}
+			fb.Close()
 		}
-		err = fb.SettingUp()
-		if err != nil {
-			log.Println("fitbit base setting failed")
-			continue
-		}
-		c := FitbitClient{
-			FitbitBase: &fb,
-		}
-		log.Println("start sync")
-		err = c.UploadData()
-		if err != nil {
-			log.Println("sync failed", err)
-		}
-		log.Println("sync end")
-		fb.Close()
 		select {
 		case <-ticker:
 			continue
