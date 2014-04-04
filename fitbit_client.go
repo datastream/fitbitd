@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"time"
 )
 
 const (
@@ -33,7 +34,7 @@ type RemoteOp struct {
 	PayloadData string `xml:"payloadData"`
 }
 
-func (c *FitbitClient) GetRemoteInfo() error {
+func (c *FitbitClient) UploadData() error {
 	//init_tracker_for_transfer
 	v := url.Values{}
 	weburl := FITBITHOST + STARTPATH
@@ -85,4 +86,44 @@ func (c *FitbitClient) GetRemoteInfo() error {
 		weburl = "http://" + c.ResponseInfo.Host + c.ResponseInfo.Path
 	}
 	return err
+}
+
+type SyncTask struct {
+	exitChannel chan int
+}
+
+func (s *SyncTask) Run() {
+	ticker := time.Tick(time.Second * 600)
+	for {
+		fb := FitbitBase{}
+		err := fb.Open()
+		if err != nil {
+			log.Println("fitbit base not find")
+			continue
+		}
+		err = fb.SettingUp()
+		if err != nil {
+			log.Println("fitbit base setting failed")
+			continue
+		}
+		c := FitbitClient{
+			FitbitBase: &fb,
+		}
+		log.Println("start sync")
+		err = c.UploadData()
+		if err != nil {
+			log.Println("sync failed", err)
+		}
+		log.Println("sync end")
+		fb.Close()
+		select {
+		case <-ticker:
+			continue
+		case <-s.exitChannel:
+			return
+		}
+	}
+}
+func (s *SyncTask) Stop() {
+	close(s.exitChannel)
 }

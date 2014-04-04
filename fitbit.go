@@ -312,8 +312,14 @@ func (f *FitbitBase) GetTrackerBurst() ([]byte, error) {
 	if size == 0 {
 		return d[:0], err
 	}
-	log.Println("get burst:", d[8:8+size])
-	return d[8 : 8+size], err
+	var data []byte
+	if (8 + int(size)) < len(d) {
+		data = d[8 : 8+size]
+	} else {
+		data = d[8:]
+	}
+	log.Println("get burst:", data)
+	return data, err
 }
 
 func (f *FitbitBase) RunDataBankOpcode(index byte) ([]byte, error) {
