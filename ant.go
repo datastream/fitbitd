@@ -76,7 +76,7 @@ func (f *ANT) ReceiveMessage(size int) ([]byte, error) {
 		if ok, err := ANTPackageSum(data); !ok {
 			if err.Error() == "length error" {
 				retry = 0
-				n, err := f.reader.Read(buf)
+				n, _ := f.reader.Read(buf)
 				log.Printf("USB Read: [% #x]\n", buf[:n])
 				f.receiveBuf = append(f.receiveBuf, buf[:n]...)
 				continue
