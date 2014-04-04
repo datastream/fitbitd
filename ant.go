@@ -61,6 +61,7 @@ func (f *ANT) ReceiveMessage(size int) ([]byte, error) {
 	for {
 		if len(f.receiveBuf) < minlen && retry < 3 {
 			n, err := f.reader.Read(buf)
+			log.Printf("USB Read: [% #x]\n", buf[:n])
 			f.receiveBuf = append(f.receiveBuf, buf[:n]...)
 			if err != nil {
 				retry++
@@ -237,8 +238,9 @@ func (f *ANT) ReceiveAcknowledgedReply() ([]byte, error) {
 	for i := 0; i < 30; i++ {
 		data, err = f.ReceiveMessage(13)
 		if len(data) > 4 && data[2] == '\x4f' {
-			log.Println("ReceiveAcknowledgedReply: ", data[4:len(data)-1])
-			return data[4 : len(data)-1], err
+			l := len(data)
+			log.Println("ReceiveAcknowledgedReply: ", data[4:l-1])
+			return data[4 : l-1], err
 		}
 	}
 	return data, fmt.Errorf("failed to receive acknowledged reply")
@@ -302,13 +304,14 @@ func (f *ANT) CheckBurstResponse() ([]byte, error) {
 			log.Println("CheckBurstResponse: ", response)
 			return response, fmt.Errorf("Burst receive failed by event!")
 		}
+		l := len(status)
 		if len(status) > 4 && status[2] == '\x4f' {
-			response = append(response, status[4:len(status)-1]...)
+			response = append(response, status[4:l-1]...)
 			log.Println("CheckBurstResponse: ", response)
 			return response, nil
 		}
 		if len(status) > 4 && status[2] == '\x50' {
-			response = append(response, status[4:len(status)-1]...)
+			response = append(response, status[4:l-1]...)
 			if (status[3] & '\x80') > 0 {
 				log.Println("CheckBurstResponse: ", response)
 				return response, nil

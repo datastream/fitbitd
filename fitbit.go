@@ -112,7 +112,7 @@ func (f *FitbitBase) InitDeviceChannel(channel []byte) (bool, error) {
 		log.Println("fitbit set channel frequency failed")
 		return ok, err
 	}
-	ok, err = f.base.SetTransmitPower('\x30')
+	ok, err = f.base.SetTransmitPower('\x03')
 	if !ok {
 		log.Println("fitbit set transmit power failed")
 		return ok, err
@@ -259,10 +259,11 @@ func (f *FitbitBase) SendTrackerPayload(payload []byte) (bool, error) {
 		var plist []byte
 		if (i + 8) > len(payload) {
 			plist = append(plist, byte((int(current_prefix)+'\x80'))|f.base.channel)
+			plist = append(plist, payload[i:]...)
 		} else {
 			plist = append(plist, current_prefix|f.base.channel)
+			plist = append(plist, payload[i:i+8]...)
 		}
-		plist = append(plist, payload[i:i+8]...)
 		for {
 			if len(plist) >= 9 {
 				break

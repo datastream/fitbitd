@@ -17,12 +17,13 @@ const (
 )
 
 type FitbitClient struct {
-	*FitbitBase  `xml:""`
+	*FitbitBase  `xml:"-"`
 	ResponseInfo Response   `xml:"response"`
 	RemoteOps    []RemoteOp `xml:"device>remoteOps>remoteOp"`
 }
 
 type Response struct {
+	Body string `xml:",chardata"`
 	Host string `xml:"host,attr"`
 	Path string `xml:"path,attr"`
 }
@@ -63,6 +64,10 @@ func (c *FitbitClient) GetRemoteInfo() error {
 		}
 		resp.Body.Close()
 		log.Println(string(body))
+		v, err = url.ParseQuery(c.ResponseInfo.Body)
+		if err != nil {
+			return err
+		}
 		for i, op := range c.RemoteOps {
 			opcode, err := base64.StdEncoding.DecodeString(op.OpCode)
 			payload, err := base64.StdEncoding.DecodeString(op.PayloadData)
