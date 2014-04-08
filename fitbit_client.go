@@ -53,8 +53,8 @@ func (c *FitbitClient) UploadData() error {
 		v.Set("clientId", CLIENTUUID)
 		log.Println(weburl, v)
 		resp, err := client.PostForm(weburl, v)
-		c.ResponseInfo.Host = ""
-		c.ResponseInfo.Path = ""
+		c.ResponseInfo = Response{}
+		c.RemoteOps = c.RemoteOps[:0]
 		if err != nil {
 			log.Println(err)
 			break
@@ -70,6 +70,7 @@ func (c *FitbitClient) UploadData() error {
 			return err
 		}
 		for i, op := range c.RemoteOps {
+			log.Printf("opCode[%d]: %s, payload: %s\n", i, op.OpCode, op.PayloadData)
 			opcode, err := base64.StdEncoding.DecodeString(op.OpCode)
 			payload, err := base64.StdEncoding.DecodeString(op.PayloadData)
 			code, err := c.RunOpcode(opcode, payload)
@@ -79,7 +80,6 @@ func (c *FitbitClient) UploadData() error {
 			v.Set(fmt.Sprintf("opResponse[%d]", i), base64.StdEncoding.EncodeToString(code))
 			v.Set(fmt.Sprintf("opStatus[%d]", i), "success")
 		}
-		c.RemoteOps = c.RemoteOps[:0]
 		if c.ResponseInfo.Host == "" {
 			break
 		}

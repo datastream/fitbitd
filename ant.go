@@ -61,7 +61,6 @@ func (f *ANT) ReceiveMessage(size int) ([]byte, error) {
 	for {
 		if len(f.receiveBuf) < minlen && retry < 3 {
 			n, err := f.reader.Read(buf)
-			log.Printf("USB Read: [% #x]\n", buf[:n])
 			f.receiveBuf = append(f.receiveBuf, buf[:n]...)
 			if err != nil {
 				retry++
@@ -77,7 +76,6 @@ func (f *ANT) ReceiveMessage(size int) ([]byte, error) {
 			if err.Error() == "length error" {
 				retry = 0
 				n, _ := f.reader.Read(buf)
-				log.Printf("USB Read: [% #x]\n", buf[:n])
 				f.receiveBuf = append(f.receiveBuf, buf[:n]...)
 				continue
 			}
@@ -88,7 +86,6 @@ func (f *ANT) ReceiveMessage(size int) ([]byte, error) {
 		f.receiveBuf = data[l:]
 		break
 	}
-	log.Printf("Receive: [% #x], Size: %d\nbuf:[% #x]\n", data[:l], l, f.receiveBuf)
 	return data[:l], nil
 }
 
@@ -154,7 +151,6 @@ func (f *ANT) CheckOkResponse() (bool, error) {
 func (f *ANT) Reset() (bool, error) {
 	err := f.SendMessage('\x4a', '\x00')
 	if err != nil {
-		log.Println("write err")
 		return false, err
 	}
 	time.Sleep(time.Second)
@@ -242,7 +238,6 @@ func (f *ANT) ReceiveAcknowledgedReply() ([]byte, error) {
 		data, err = f.ReceiveMessage(13)
 		if len(data) > 4 && data[2] == '\x4f' {
 			l := len(data)
-			log.Println("ReceiveAcknowledgedReply: ", data[4:l-1])
 			return data[4 : l-1], err
 		}
 	}
@@ -262,11 +257,9 @@ func (f *ANT) CheckTxResponse(maxtries int) (bool, error) {
 			}
 			if status[5] == '\x05' {
 				// TX successful
-				log.Println("CheckTxResponse:", status)
 				return true, nil
 			}
 			if status[5] == '\x06' {
-				log.Println("CheckTxResponse:", status)
 				return false, fmt.Errorf("Transmission Failed: %x", status)
 			}
 		}
@@ -291,7 +284,6 @@ func (f *ANT) SendBurstData(data []byte, sleep time.Duration) (bool, error) {
 			l += 9
 		}
 		if ok, err := f.CheckTxResponse(16); ok {
-			log.Println("tx ok", ok, err)
 			return ok, err
 		}
 	}
@@ -304,19 +296,16 @@ func (f *ANT) CheckBurstResponse() ([]byte, error) {
 	for i := 0; i < 128; i++ {
 		status, _ := f.ReceiveMessage(4096)
 		if len(status) > 5 && status[2] == '\x40' && status[5] == '\x04' {
-			log.Println("CheckBurstResponse: ", response)
 			return response, fmt.Errorf("Burst receive failed by event!")
 		}
 		l := len(status)
 		if len(status) > 4 && status[2] == '\x4f' {
 			response = append(response, status[4:l-1]...)
-			log.Println("CheckBurstResponse: ", response)
 			return response, nil
 		}
 		if len(status) > 4 && status[2] == '\x50' {
 			response = append(response, status[4:l-1]...)
 			if (status[3] & '\x80') > 0 {
-				log.Println("CheckBurstResponse: ", response)
 				return response, nil
 			}
 		}

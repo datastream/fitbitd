@@ -204,10 +204,12 @@ func (f *FitbitBase) RunOpcode(opcode, payload []byte) ([]byte, error) {
 	for i := 0; i < 4; i++ {
 		ok, err := f.SendTrackerPacket(opcode)
 		if !ok {
+			log.Println(err)
 			continue
 		}
 		data, err := f.base.ReceiveAcknowledgedReply()
 		if err != nil {
+			log.Println(err)
 			continue
 		}
 		if data[0] != byte(f.currentPacketId) {
@@ -218,15 +220,16 @@ func (f *FitbitBase) RunOpcode(opcode, payload []byte) ([]byte, error) {
 		}
 		if data[1] == '\x61' {
 			if len(payload) > 0 {
-				f.SendTrackerPayload(payload)
+				if ok, err := f.SendTrackerPayload(payload); !ok {
+					log.Println(err)
+					break
+				}
 				data, err := f.base.ReceiveAcknowledgedReply()
-				data = data[1:]
-				return data, err
+				return data[1:], err
 			}
 		}
 		if data[1] == '\x41' {
-			data = data[1:]
-			return data, nil
+			return data[1:], nil
 		}
 	}
 	return []byte{}, fmt.Errorf("failed to run opcode")
@@ -277,6 +280,7 @@ func (f *FitbitBase) SendTrackerPayload(payload []byte) (bool, error) {
 		}
 		index++
 	}
+	log.Println("SendPayload", p)
 	return f.base.SendBurstData(p, 10*time.Millisecond)
 }
 func (f *FitbitBase) GetDataBank() ([]byte, error) {
@@ -304,11 +308,13 @@ func (f *FitbitBase) CheckTrackerDataBank(index int, cmd byte) ([]byte, error) {
 }
 func (f *FitbitBase) GetTrackerBurst() ([]byte, error) {
 	d, err := f.base.CheckBurstResponse()
+	if err != nil {
+		return d, err
+	}
 	if len(d) > 0 && d[1] != '\x81' {
 		return d, fmt.Errorf("Response received is not tracker burst! Got")
 	}
 	size := d[3]<<8 | d[2]
-	log.Println("burst response:", d, size)
 	if size == 0 {
 		return d[:0], err
 	}
@@ -318,7 +324,6 @@ func (f *FitbitBase) GetTrackerBurst() ([]byte, error) {
 	} else {
 		data = d[8:]
 	}
-	log.Println("get burst:", data)
 	return data, err
 }
 
