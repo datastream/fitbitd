@@ -38,9 +38,9 @@ func (c *FitbitClient) UploadData() error {
 	//init_tracker_for_transfer
 	v := url.Values{}
 	weburl := FITBITHOST + STARTPATH
-	ok, err := c.InitTrackerForTransfer()
+	err := c.InitTrackerForTransfer()
 	log.Println("end init----------")
-	if !ok {
+	if err != nil {
 		return err
 	}
 	defer c.CommandSleep()
@@ -69,14 +69,15 @@ func (c *FitbitClient) UploadData() error {
 			return err
 		}
 		for i, op := range c.RemoteOps {
-			log.Printf("opCode[%d]: %s, payload: %s\n", i, op.OpCode, op.PayloadData)
 			opcode, err := base64.StdEncoding.DecodeString(op.OpCode)
 			payload, err := base64.StdEncoding.DecodeString(op.PayloadData)
 			code, err := c.RunOpcode(opcode, payload)
 			if err != nil {
 				return err
 			}
-			v.Set(fmt.Sprintf("opResponse[%d]", i), base64.StdEncoding.EncodeToString(code))
+			resp := base64.StdEncoding.EncodeToString(code)
+			log.Printf("opCode[%d]: %s, payload: %s, response: %s\n", i, op.OpCode, op.PayloadData, resp)
+			v.Set(fmt.Sprintf("opResponse[%d]", i), resp)
 			v.Set(fmt.Sprintf("opStatus[%d]", i), "success")
 		}
 		if c.ResponseInfo.Host == "" {

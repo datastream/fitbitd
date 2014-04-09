@@ -72,13 +72,14 @@ func (f *ANT) ReceiveMessage(size int) ([]byte, error) {
 		}
 		data = f.receiveBuf
 		data = f.FindSync(data)
-		if ok, err := ANTPackageSum(data); !ok {
-			if err.Error() == "length error" {
-				retry = 0
-				n, _ := f.reader.Read(buf)
-				f.receiveBuf = append(f.receiveBuf, buf[:n]...)
-				continue
-			}
+		err := ANTPackageSum(data)
+		if err != nil && err.Error() == "length error" {
+			retry = 0
+			n, _ := f.reader.Read(buf)
+			f.receiveBuf = append(f.receiveBuf, buf[:n]...)
+			continue
+		}
+		if err != nil {
 			f.receiveBuf = f.FindSync(data[1:])
 			continue
 		}
@@ -105,128 +106,127 @@ func (f *ANT) FindSync(data []byte) []byte {
 
 // CheckSum
 
-func ANTPackageSum(data []byte) (bool, error) {
+func ANTPackageSum(data []byte) error {
 	if len(data) > 4 {
 		if data[1] < 0 || data[1] > 32 {
-			return false, fmt.Errorf("wrong size")
+			return fmt.Errorf("wrong size")
 		}
 		l := int(data[1]) + 4
 		if len(data) < l {
-			return false, fmt.Errorf("length error")
+			return fmt.Errorf("length error")
 		}
 		p := data[0:l]
 		if XorSum(p) != '\x00' {
-			return false, fmt.Errorf("xor error")
+			return fmt.Errorf("xor error")
 		}
-		return true, nil
+		return nil
 	}
-	return false, fmt.Errorf("length error")
+	return fmt.Errorf("length error")
 }
 
 // FitBit ANT protocal
-func (f *ANT) CheckResetResponse(status byte) (bool, error) {
+func (f *ANT) CheckResetResponse(status byte) error {
 	data, err := f.ReceiveMessage(4096)
 	if err != nil {
-		return false, err
+		return err
 	}
 	if len(data) > 3 && data[2] == '\x6f' && data[3] == status {
-		return true, nil
+		return nil
 	}
-	return false, fmt.Errorf("rest failed: % #x", status)
+	return fmt.Errorf("rest failed: % #x", status)
 }
-func (f *ANT) CheckOkResponse() (bool, error) {
+func (f *ANT) CheckOkResponse() error {
 	data, err := f.ReceiveMessage(4096)
 	if err != nil {
-		return false, err
+		return err
 	}
 	if len(data) < 6 {
-		return false, fmt.Errorf("lack response data: %x", data)
+		return fmt.Errorf("lack response data: %x", data)
 	}
 	if data[2] == '\x40' && data[5] == '\x00' {
-		return true, nil
+		return nil
 	}
-	return false, fmt.Errorf("bad response data: %x", data)
+	return fmt.Errorf("bad response data: %x", data)
 }
 
-func (f *ANT) Reset() (bool, error) {
+func (f *ANT) Reset() error {
 	err := f.SendMessage('\x4a', '\x00')
-	if err != nil {
-		return false, err
-	}
-	time.Sleep(time.Second)
-	for i := 0; i < 8; i++ {
-		if ok, err := f.CheckResetResponse('\x20'); ok {
-			return ok, err
+	if err == nil {
+		time.Sleep(time.Second)
+		for i := 0; i < 8; i++ {
+			if err = f.CheckResetResponse('\x20'); err == nil {
+				break
+			}
 		}
 	}
-	return false, fmt.Errorf("bad reset")
+	return err
 }
-func (f *ANT) SetChannelFrequency(freq byte) (bool, error) {
+func (f *ANT) SetChannelFrequency(freq byte) error {
 	err := f.SendMessage('\x45', f.channel, freq)
 	if err != nil {
-		return false, err
+		return err
 	}
 	return f.CheckOkResponse()
 }
 
-func (f *ANT) SetTransmitPower(power byte) (bool, error) {
+func (f *ANT) SetTransmitPower(power byte) error {
 	err := f.SendMessage('\x47', '\x00', power)
 	if err != nil {
-		return false, err
+		return err
 	}
 	return f.CheckOkResponse()
 }
 
-func (f *ANT) SetSearchTimeout(timeout byte) (bool, error) {
+func (f *ANT) SetSearchTimeout(timeout byte) error {
 	err := f.SendMessage('\x44', f.channel, timeout)
 	if err != nil {
-		return false, err
+		return err
 	}
 	return f.CheckOkResponse()
 }
 
-func (f *ANT) SetChannelPeriod(period []byte) (bool, error) {
+func (f *ANT) SetChannelPeriod(period []byte) error {
 	err := f.SendMessage('\x43', f.channel, period)
 	if err != nil {
-		return false, err
+		return err
 	}
 	return f.CheckOkResponse()
 }
 
-func (f *ANT) SetNetworkKey(network byte, key []byte) (bool, error) {
+func (f *ANT) SetNetworkKey(network byte, key []byte) error {
 	err := f.SendMessage('\x46', network, key)
 	if err != nil {
-		return false, err
+		return err
 	}
 	return f.CheckOkResponse()
 }
 
-func (f *ANT) SetChannelId(id []byte) (bool, error) {
+func (f *ANT) SetChannelId(id []byte) error {
 	err := f.SendMessage('\x51', f.channel, id)
 	if err != nil {
-		return false, err
+		return err
 	}
 	return f.CheckOkResponse()
 }
 
-func (f *ANT) OpenChannel() (bool, error) {
+func (f *ANT) OpenChannel() error {
 	err := f.SendMessage('\x4b', f.channel)
 	if err != nil {
-		return false, err
+		return err
 	}
 	return f.CheckOkResponse()
 }
-func (f *ANT) CloseChannel() (bool, error) {
+func (f *ANT) CloseChannel() error {
 	err := f.SendMessage('\x4c', f.channel)
 	if err != nil {
-		return false, err
+		return err
 	}
 	return f.CheckOkResponse()
 }
-func (f *ANT) AssignChannel() (bool, error) {
+func (f *ANT) AssignChannel() error {
 	err := f.SendMessage('\x42', f.channel, '\x00', '\x00')
 	if err != nil {
-		return false, err
+		return err
 	}
 	return f.CheckOkResponse()
 }
@@ -244,7 +244,7 @@ func (f *ANT) ReceiveAcknowledgedReply() ([]byte, error) {
 	return data, fmt.Errorf("failed to receive acknowledged reply")
 }
 
-func (f *ANT) CheckTxResponse(maxtries int) (bool, error) {
+func (f *ANT) CheckTxResponse(maxtries int) error {
 	for i := 0; i < maxtries; i++ {
 		status, err := f.ReceiveMessage(4096)
 		if err != nil {
@@ -257,72 +257,78 @@ func (f *ANT) CheckTxResponse(maxtries int) (bool, error) {
 			}
 			if status[5] == '\x05' {
 				// TX successful
-				return true, nil
+				return nil
 			}
 			if status[5] == '\x06' {
-				return false, fmt.Errorf("Transmission Failed: %x", status)
+				return fmt.Errorf("Transmission Failed: %x", status)
 			}
 		}
 	}
-	log.Println("no tx")
-	return false, fmt.Errorf("No Transmission Ack Seen")
+	return fmt.Errorf("No Transmission Ack Seen")
 }
 
-func (f *ANT) SendBurstData(data []byte, sleep time.Duration) (bool, error) {
+func (f *ANT) SendBurstData(data []byte, sleep time.Duration) error {
+	var err error
 	for i := 0; i < 2; i++ {
 		l := 0
 		for {
 			if (l + 9) > len(data) {
-				f.SendMessage('\x50', data[l:])
+				err = f.SendMessage('\x50', data[l:])
 				break
 			} else {
-				f.SendMessage('\x50', data[l:l+9])
+				err = f.SendMessage('\x50', data[l:l+9])
+			}
+			if err != nil {
+				continue
 			}
 			if sleep > 0 {
 				time.Sleep(sleep)
 			}
 			l += 9
 		}
-		if ok, err := f.CheckTxResponse(16); ok {
-			return ok, err
+		if err = f.CheckTxResponse(16); err == nil {
+			break
 		}
 	}
-
-	return false, fmt.Errorf("write burst data failed")
+	return err
 }
 
 func (f *ANT) CheckBurstResponse() ([]byte, error) {
 	var response []byte
 	for i := 0; i < 128; i++ {
-		status, _ := f.ReceiveMessage(4096)
-		if len(status) > 5 && status[2] == '\x40' && status[5] == '\x04' {
-			return response, fmt.Errorf("Burst receive failed by event!")
+		status, err := f.ReceiveMessage(4096)
+		if err != nil {
+			continue
 		}
 		l := len(status)
-		if len(status) > 4 && status[2] == '\x4f' {
-			response = append(response, status[4:l-1]...)
-			return response, nil
-		}
-		if len(status) > 4 && status[2] == '\x50' {
-			response = append(response, status[4:l-1]...)
-			if (status[3] & '\x80') > 0 {
+		if l > 5 && status[2] == '\x40' && status[5] == '\x04' {
+			return response, fmt.Errorf("Burst receive failed by event!")
+		} else {
+			if l > 4 && status[2] == '\x4f' {
+				response = append(response, status[4:l-1]...)
 				return response, nil
+			} else {
+				if l > 4 && status[2] == '\x50' {
+					response = append(response, status[4:l-1]...)
+					if (status[3] & '\x80') > 0 {
+						return response, nil
+					}
+				}
 			}
 		}
 	}
 	return response, fmt.Errorf("Burst receive failed to detect end")
 }
 
-func (f *ANT) SendAcknowledgedData(l []byte) (bool, error) {
-	log.Println("SendAcknowledgedData:", l)
+func (f *ANT) SendAcknowledgedData(l []byte) error {
 	for i := 0; i < 8; i++ {
 		err := f.SendMessage('\x4f', f.channel, l)
 		if err != nil {
 			continue
 		}
-		if ok, err := f.CheckTxResponse(16); ok {
-			return ok, err
+		if err = f.CheckTxResponse(16); err == nil {
+			return err
 		}
 	}
-	return false, fmt.Errorf("Failed to send Acknowledged Data")
+	return fmt.Errorf("Failed to send Acknowledged Data")
 }

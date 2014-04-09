@@ -86,106 +86,106 @@ func (f *FitbitBase) Close() {
 }
 
 // data transport
-func (f *FitbitBase) InitDeviceChannel(channel []byte) (bool, error) {
-	ok, err := f.base.Reset()
-	if !ok {
+func (f *FitbitBase) InitDeviceChannel(channel []byte) error {
+	err := f.base.Reset()
+	if err != nil {
 		log.Println("fitbit reset failed")
-		return ok, err
+		return err
 	}
-	ok, err = f.base.SetNetworkKey(0, []byte{0, 0, 0, 0, 0, 0, 0, 0})
-	if !ok {
+	err = f.base.SetNetworkKey(0, []byte{0, 0, 0, 0, 0, 0, 0, 0})
+	if err != nil {
 		log.Println("fitbit set network key failed")
-		return ok, err
+		return err
 	}
-	ok, err = f.base.AssignChannel()
-	if !ok {
+	err = f.base.AssignChannel()
+	if err != nil {
 		log.Println("fitbit assign channel failed")
-		return ok, err
+		return err
 	}
-	ok, err = f.base.SetChannelPeriod([]byte{'\x00', '\x10'})
-	if !ok {
+	err = f.base.SetChannelPeriod([]byte{'\x00', '\x10'})
+	if err != nil {
 		log.Println("fitbit set channel period failed")
-		return ok, err
+		return err
 	}
-	ok, err = f.base.SetChannelFrequency('\x02')
-	if !ok {
+	err = f.base.SetChannelFrequency('\x02')
+	if err != nil {
 		log.Println("fitbit set channel frequency failed")
-		return ok, err
+		return err
 	}
-	ok, err = f.base.SetTransmitPower('\x03')
-	if !ok {
+	err = f.base.SetTransmitPower('\x03')
+	if err != nil {
 		log.Println("fitbit set transmit power failed")
-		return ok, err
+		return err
 	}
-	ok, err = f.base.SetSearchTimeout('\xff')
-	if !ok {
+	err = f.base.SetSearchTimeout('\xff')
+	if err != nil {
 		log.Println("fitbit set search timeout failed")
-		return ok, err
+		return err
 	}
-	ok, err = f.base.SetChannelId(channel)
-	if !ok {
+	err = f.base.SetChannelId(channel)
+	if err != nil {
 		log.Println("fitbit set channel id failed")
-		return ok, err
+		return err
 	}
-	ok, err = f.base.OpenChannel()
-	if !ok {
+	err = f.base.OpenChannel()
+	if err != nil {
 		log.Println("fitbit open channel failed")
-		return ok, err
+		return err
 	}
-	return ok, err
+	return err
 }
 
-func (f *FitbitBase) InitTrackerForTransfer() (bool, error) {
-	ok, err := f.InitDeviceChannel([]byte{'\xff', '\xff', '\x01', '\x01'})
-	if !ok {
+func (f *FitbitBase) InitTrackerForTransfer() error {
+	err := f.InitDeviceChannel([]byte{'\xff', '\xff', '\x01', '\x01'})
+	if err != nil {
 		log.Println("fitbit init failed")
-		return ok, err
+		return err
 	}
 	err = f.WaitForBeacon()
 	if err != nil {
-		return false, err
+		return err
 	}
-	ok, err = f.ResetTracker()
-	if !ok {
+	err = f.ResetTracker()
+	if err != nil {
 		log.Println("fitbit reset tracker failed")
-		return ok, err
+		return err
 	}
 	cid := []byte{byte(rand.Intn(254)), byte(rand.Intn(254))}
-	ok, err = f.base.SendAcknowledgedData(append(append([]byte{'\x78', '\x02'}, cid...), []byte{'\x00', '\x00', '\x00', '\x00'}...))
-	if !ok {
+	err = f.base.SendAcknowledgedData(append(append([]byte{'\x78', '\x02'}, cid...), []byte{'\x00', '\x00', '\x00', '\x00'}...))
+	if err != nil {
 		log.Println("fitbit ack ack to tracker failed")
-		return ok, err
+		return err
 	}
-	ok, err = f.base.CloseChannel()
-	if !ok {
+	err = f.base.CloseChannel()
+	if err != nil {
 		log.Println("fitbit close channel failed")
-		return ok, err
+		return err
 	}
-	ok, err = f.InitDeviceChannel(append(cid, []byte{0x01, 0x01}...))
-	if !ok {
+	err = f.InitDeviceChannel(append(cid, []byte{0x01, 0x01}...))
+	if err != nil {
 		log.Println("fitbit reinit channel failed")
-		return ok, err
+		return err
 	}
 	err = f.WaitForBeacon()
 	if err != nil {
-		return false, err
+		return err
 	}
-	ok, err = f.PingTracker()
-	if !ok {
+	err = f.PingTracker()
+	if err != nil {
 		log.Println("fitbit ping tracker failed")
 	}
-	return ok, err
+	return err
 }
 
-func (f *FitbitBase) ResetTracker() (bool, error) {
+func (f *FitbitBase) ResetTracker() error {
 	return f.base.SendAcknowledgedData([]byte{'\x78', '\x01', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00'})
 }
 
-func (f *FitbitBase) CommandSleep() (bool, error) {
+func (f *FitbitBase) CommandSleep() error {
 	return f.base.SendAcknowledgedData([]byte{'\x7f', '\x03', '\x00', '\x00', '\x00', '\x00', '\x00', '\x3c'})
 }
 
-func (f *FitbitBase) PingTracker() (bool, error) {
+func (f *FitbitBase) PingTracker() error {
 	return f.base.SendAcknowledgedData([]byte{'\x78', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00', '\x00'})
 }
 
@@ -202,8 +202,9 @@ func (f *FitbitBase) WaitForBeacon() error {
 
 func (f *FitbitBase) RunOpcode(opcode, payload []byte) ([]byte, error) {
 	for i := 0; i < 4; i++ {
-		ok, err := f.SendTrackerPacket(opcode)
-		if !ok {
+		log.Println("run opCode: ", opcode)
+		err := f.SendTrackerPacket(opcode)
+		if err != nil {
 			log.Println(err)
 			continue
 		}
@@ -214,13 +215,15 @@ func (f *FitbitBase) RunOpcode(opcode, payload []byte) ([]byte, error) {
 		}
 		if data[0] != byte(f.currentPacketId) {
 			log.Printf("Tracker Packet IDs don't match! %v %v \n", f.currentPacketId, data[0])
+			continue
 		}
 		if data[1] == '\x42' {
+			log.Println("Start DataBank")
 			return f.GetDataBank()
 		}
 		if data[1] == '\x61' {
 			if len(payload) > 0 {
-				if ok, err := f.SendTrackerPayload(payload); !ok {
+				if err := f.SendTrackerPayload(payload); err != nil {
 					log.Println(err)
 					break
 				}
@@ -234,11 +237,6 @@ func (f *FitbitBase) RunOpcode(opcode, payload []byte) ([]byte, error) {
 	}
 	return []byte{}, fmt.Errorf("failed to run opcode")
 }
-func (f *FitbitBase) SendTrackerPacket(packet []byte) (bool, error) {
-	p := append([]byte{byte(f.GenPacketId())}, packet...)
-	return f.base.SendAcknowledgedData(p)
-}
-
 func (f *FitbitBase) GenPacketId() int {
 	f.currentPacketId = '\x38' + f.getTrackerPacketCount()
 	return f.currentPacketId
@@ -251,7 +249,7 @@ func (f *FitbitBase) getTrackerPacketCount() int {
 	}
 	return f.trackerPacketCount
 }
-func (f *FitbitBase) SendTrackerPayload(payload []byte) (bool, error) {
+func (f *FitbitBase) SendTrackerPayload(payload []byte) error {
 	p := []byte{'\x00', byte(f.GenPacketId()), '\x80', byte(len(payload)), '\x00', '\x00', '\x00', '\x00'}
 	p = append(p, XorSum(payload))
 	prefix := []byte{'\x20', '\x40', '\x60'}
@@ -287,14 +285,15 @@ func (f *FitbitBase) GetDataBank() ([]byte, error) {
 	var data []byte
 	cmd := byte('\x70')
 	for i := 0; i < 2000; i++ {
+		log.Println("databank:", f.currentBankId, cmd)
 		bank, err := f.CheckTrackerDataBank(f.currentBankId, cmd)
 		if err != nil {
 			log.Println(err)
+			continue
 		}
 		f.currentBankId += 1
 		cmd = '\x60' // Send 0x60 on subsequent bursts
 		if len(bank) == 0 {
-			log.Println("Get dataBank", data)
 			return data, nil
 		}
 		data = append(data, bank...)
@@ -303,8 +302,16 @@ func (f *FitbitBase) GetDataBank() ([]byte, error) {
 }
 
 func (f *FitbitBase) CheckTrackerDataBank(index int, cmd byte) ([]byte, error) {
-	f.SendTrackerPacket([]byte{cmd, '\x00', '\x02', byte(index), '\x00', '\x00', '\x00'})
+	err := f.SendTrackerPacket([]byte{cmd, '\x00', '\x02', byte(index), '\x00', '\x00', '\x00'})
+	if err != nil {
+		return []byte{}, err
+	}
 	return f.GetTrackerBurst()
+}
+func (f *FitbitBase) SendTrackerPacket(packet []byte) error {
+	p := append([]byte{byte(f.GenPacketId())}, packet...)
+	log.Println("SendAcknowledgedData:", p)
+	return f.base.SendAcknowledgedData(p)
 }
 func (f *FitbitBase) GetTrackerBurst() ([]byte, error) {
 	d, err := f.base.CheckBurstResponse()
