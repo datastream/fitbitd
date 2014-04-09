@@ -56,8 +56,7 @@ func (c *FitbitClient) UploadData() error {
 		c.ResponseInfo = Response{}
 		c.RemoteOps = c.RemoteOps[:0]
 		if err != nil {
-			log.Println(err)
-			break
+			return err
 		}
 		body, err := ioutil.ReadAll(resp.Body)
 		if err == nil {
@@ -75,7 +74,7 @@ func (c *FitbitClient) UploadData() error {
 			payload, err := base64.StdEncoding.DecodeString(op.PayloadData)
 			code, err := c.RunOpcode(opcode, payload)
 			if err != nil {
-				log.Println(err)
+				return err
 			}
 			v.Set(fmt.Sprintf("opResponse[%d]", i), base64.StdEncoding.EncodeToString(code))
 			v.Set(fmt.Sprintf("opStatus[%d]", i), "success")
