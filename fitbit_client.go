@@ -17,10 +17,13 @@ const (
 	STARTPATH  = "/device/tracker/uploadData"
 )
 
-type FitbitClient struct {
-	*FitbitBase  `xml:"-"`
+type FitbitConfig struct {
 	ResponseInfo Response   `xml:"response"`
 	RemoteOps    []RemoteOp `xml:"device>remoteOps>remoteOp"`
+}
+
+type FitbitClient struct {
+	*FitbitBase
 }
 
 type Response struct {
@@ -45,30 +48,29 @@ func (c *FitbitClient) UploadData() error {
 	}
 	defer c.CommandSleep()
 	client := http.Client{}
+	v.Set("beaconType", "standard")
+	v.Set("clientMode", "standard")
+	v.Set("clientVersion", "1.0")
+	v.Set("os", "fitbitd")
+	v.Set("clientId", CLIENTUUID)
 	for {
-		v.Set("beaconType", "standard")
-		v.Set("clientMode", "standard")
-		v.Set("clientVersion", "1.0")
-		v.Set("os", "libfitbit")
-		v.Set("clientId", CLIENTUUID)
 		log.Println(weburl, v)
 		resp, err := client.PostForm(weburl, v)
-		c.ResponseInfo = Response{}
-		c.RemoteOps = c.RemoteOps[:0]
 		if err != nil {
 			return err
 		}
 		body, err := ioutil.ReadAll(resp.Body)
+		config := FitbitConfig{}
 		if err == nil {
-			err = xml.Unmarshal(body, c)
+			err = xml.Unmarshal(body, &config)
 		}
 		resp.Body.Close()
 		log.Println(string(body))
-		v, err = url.ParseQuery(c.ResponseInfo.Body)
+		v, err = url.ParseQuery(config.ResponseInfo.Body)
 		if err != nil {
 			return err
 		}
-		for i, op := range c.RemoteOps {
+		for i, op := range config.RemoteOps {
 			opcode, err := base64.StdEncoding.DecodeString(op.OpCode)
 			payload, err := base64.StdEncoding.DecodeString(op.PayloadData)
 			code, err := c.RunOpcode(opcode, payload)
@@ -80,10 +82,15 @@ func (c *FitbitClient) UploadData() error {
 			v.Set(fmt.Sprintf("opResponse[%d]", i), resp)
 			v.Set(fmt.Sprintf("opStatus[%d]", i), "success")
 		}
-		if c.ResponseInfo.Host == "" {
+		if config.ResponseInfo.Host == "" {
 			break
 		}
-		weburl = "http://" + c.ResponseInfo.Host + c.ResponseInfo.Path
+		v.Set("beaconType", "standard")
+		v.Set("clientMode", "standard")
+		v.Set("clientVersion", "1.0")
+		v.Set("os", "fitbitd")
+		v.Set("clientId", CLIENTUUID)
+		weburl = "http://" + config.ResponseInfo.Host + config.ResponseInfo.Path
 	}
 	return err
 }

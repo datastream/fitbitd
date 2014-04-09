@@ -310,7 +310,7 @@ func (f *ANT) CheckBurstResponse() ([]byte, error) {
 			} else {
 				if l > 4 && status[2] == '\x50' {
 					response = append(response, status[4:l-1]...)
-					if (status[3] & '\x80') > 0 {
+					if (status[3] & '\x80') != 0 {
 						return response, nil
 					}
 				}

@@ -202,7 +202,6 @@ func (f *FitbitBase) WaitForBeacon() error {
 
 func (f *FitbitBase) RunOpcode(opcode, payload []byte) ([]byte, error) {
 	for i := 0; i < 4; i++ {
-		log.Println("run opCode: ", opcode)
 		err := f.SendTrackerPacket(opcode)
 		if err != nil {
 			log.Println(err)
@@ -285,7 +284,6 @@ func (f *FitbitBase) GetDataBank() ([]byte, error) {
 	var data []byte
 	cmd := byte('\x70')
 	for i := 0; i < 2000; i++ {
-		log.Println("databank:", f.currentBankId, cmd)
 		bank, err := f.CheckTrackerDataBank(f.currentBankId, cmd)
 		if err != nil {
 			log.Println(err)
@@ -318,16 +316,17 @@ func (f *FitbitBase) GetTrackerBurst() ([]byte, error) {
 	if err != nil {
 		return d, err
 	}
-	if len(d) > 0 && d[1] != '\x81' {
+	if len(d) < 1 || d[1] != '\x81' {
 		return d, fmt.Errorf("Response received is not tracker burst! Got")
 	}
-	size := d[3]<<8 | d[2]
+	size := (d[3] << 8) | d[2]
 	if size == 0 {
 		return d[:0], err
 	}
 	var data []byte
-	if (8 + int(size)) < len(d) {
-		data = d[8 : 8+size]
+	datalen := int(8 + size)
+	if datalen < len(d) {
+		data = d[8:datalen]
 	} else {
 		data = d[8:]
 	}
