@@ -91,6 +91,7 @@ func (f *ANT) ReceiveMessage(size int) ([]byte, error) {
 		f.receiveBuf = data[l:]
 		break
 	}
+	log.Printf("Receive: [% #x], Size: %d\n", data[:l], l)
 	return data[:l], nil
 }
 
@@ -258,6 +259,7 @@ func (f *ANT) CheckTxResponse(maxtries int) error {
 	for i := 0; i < maxtries; i++ {
 		status, err = f.ReceiveMessage(4096)
 		if err != nil {
+			log.Println("tx error", err)
 			continue
 		}
 		if len(status) > 5 && status[2] == '\x40' {
@@ -270,7 +272,7 @@ func (f *ANT) CheckTxResponse(maxtries int) error {
 				return nil
 			}
 			if status[5] == '\x06' {
-				return fmt.Errorf("Transmission Failed: %x", status)
+				return fmt.Errorf("transmission failed")
 			}
 		}
 	}
@@ -280,6 +282,7 @@ func (f *ANT) CheckTxResponse(maxtries int) error {
 func (f *ANT) SendBurstData(data []byte, sleep time.Duration) error {
 	var err error
 	for i := 0; i < 4; i++ {
+		log.Printf("data: [% #x]\n", data)
 		for l := 0; l < len(data); l += 9 {
 			if (l + 9) > len(data) {
 				err = f.SendMessage('\x50', data[l:])
@@ -294,7 +297,6 @@ func (f *ANT) SendBurstData(data []byte, sleep time.Duration) error {
 			}
 		}
 		if err != nil {
-			log.Println("failed to send: ", err)
 			continue
 		}
 		if err = f.CheckTxResponse(16); err == nil {

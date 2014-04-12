@@ -258,13 +258,13 @@ func (f *FitbitBase) SendTrackerPayload(payload []byte) error {
 	prefix := []byte{'\x20', '\x40', '\x60'}
 	index := 0
 	for i := 0; i < len(payload); i += 8 {
-		current_prefix := prefix[index%3]
+		currentPrefix := prefix[index%3]
 		var plist []byte
 		if (i + 8) > len(payload) {
-			plist = append(plist, byte((int(current_prefix)+'\x80'))|f.base.channel)
+			plist = append(plist, byte((int(currentPrefix)+'\x80'))|f.base.channel)
 			plist = append(plist, payload[i:]...)
 		} else {
-			plist = append(plist, current_prefix|f.base.channel)
+			plist = append(plist, currentPrefix|f.base.channel)
 			plist = append(plist, payload[i:i+8]...)
 		}
 		for {
@@ -307,7 +307,6 @@ func (f *FitbitBase) CheckTrackerDataBank(index int, cmd byte) ([]byte, error) {
 }
 func (f *FitbitBase) SendTrackerPacket(packet []byte) error {
 	p := append([]byte{byte(f.GenPacketId())}, packet...)
-	log.Println("SendAcknowledgedData:", p)
 	return f.base.SendAcknowledgedData(p)
 }
 func (f *FitbitBase) GetTrackerBurst() ([]byte, error) {

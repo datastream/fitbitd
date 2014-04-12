@@ -113,9 +113,9 @@ func (s *SyncTask) Run() {
 				log.Println("start sync")
 				err = c.UploadData()
 				if err != nil {
-					log.Println("sync failed", err)
+					log.Println("sync failed")
 				} else {
-					log.Println("sync end")
+					log.Println("sync success")
 				}
 			}
 			fb.Close()
