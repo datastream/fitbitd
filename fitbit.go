@@ -260,12 +260,12 @@ func (f *FitbitBase) SendTrackerPayload(payload []byte) error {
 	for i := 0; i < len(payload); i += 8 {
 		currentPrefix := prefix[index%3]
 		var plist []byte
-		if (i + 8) > len(payload) {
-			plist = append(plist, byte((int(currentPrefix)+'\x80'))|f.base.channel)
-			plist = append(plist, payload[i:]...)
-		} else {
+		if (i + 8) < len(payload) {
 			plist = append(plist, currentPrefix|f.base.channel)
 			plist = append(plist, payload[i:i+8]...)
+		} else {
+			plist = append(plist, byte((int(currentPrefix)+'\x80'))|f.base.channel)
+			plist = append(plist, payload[i:]...)
 		}
 		for {
 			if len(plist) >= 9 {
