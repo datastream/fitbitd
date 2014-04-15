@@ -61,10 +61,11 @@ func (f *ANT) ReceiveMessage(size int) ([]byte, error) {
 	for {
 		if len(data) < minlen && retry < 3 {
 			n, err := f.reader.Read(buf)
-			data = append(data, buf[:n]...)
 			if err != nil {
 				log.Println(err)
 				retry++
+			} else {
+				data = append(data, buf[:n]...)
 			}
 			continue
 		}
@@ -79,8 +80,9 @@ func (f *ANT) ReceiveMessage(size int) ([]byte, error) {
 			if err != nil {
 				log.Println(err)
 				retry++
+			} else {
+				data = append(data, buf[:n]...)
 			}
-			data = append(data, buf[:n]...)
 			continue
 		}
 		if err != nil {
