@@ -121,6 +121,8 @@ func (s *SyncTask) Run() {
 		err = c.UploadData()
 		if err != nil {
 			log.Println("sync failed")
+		} else {
+			log.Println("sync OK")
 		}
 		c.Close()
 		select {
