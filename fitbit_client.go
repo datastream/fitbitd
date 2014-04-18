@@ -100,6 +100,7 @@ func (f *FitbitClient) SetBase() error {
 	err := fb.Open()
 	if err == nil {
 		f.FitbitBase = fb
+		err = f.SettingUp()
 	}
 	return err
 }
