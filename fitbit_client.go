@@ -95,6 +95,15 @@ func (c *FitbitClient) UploadData() error {
 	return err
 }
 
+func (f *FitbitClient) SetBase() error {
+	fb := &FitbitBase{}
+	err := fb.Open()
+	if err == nil {
+		f.FitbitBase = fb
+	}
+	return err
+}
+
 type SyncTask struct {
 	exitChannel chan int
 }
@@ -102,24 +111,17 @@ type SyncTask struct {
 func (s *SyncTask) Run() {
 	ticker := time.Tick(time.Second * 600)
 	for {
-		fb := FitbitBase{}
-		err := fb.Open()
-		if err == nil {
-			err = fb.SettingUp()
-			if err == nil {
-				c := FitbitClient{
-					FitbitBase: &fb,
-				}
-				log.Println("start sync")
-				err = c.UploadData()
-				if err != nil {
-					log.Println("sync failed")
-				} else {
-					log.Println("sync success")
-				}
-			}
-			fb.Close()
+		c := FitbitClient{}
+		err := c.SetBase()
+		if err != nil {
+			continue
 		}
+		log.Println("start sync")
+		err = c.UploadData()
+		if err != nil {
+			log.Println("sync failed")
+		}
+		c.Close()
 		select {
 		case <-ticker:
 			continue
